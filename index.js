@@ -79,6 +79,14 @@ app.get("/estado", validar, (req, res) => {
     pendientes
   });
 });
+app.get("/correos", (req, res) => {
+  try {
+    const lista = JSON.parse(fs.readFileSync("correos.json"));
+    res.json({ ok: true, correos: lista });
+  } catch {
+    res.json({ ok: false, correos: [] });
+  }
+});
 
 // ---------- ENDPOINT 3: Enviar correos por lote ----------
 app.post("/enviar-lote", validar, async (req, res) => {
