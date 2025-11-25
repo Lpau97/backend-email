@@ -8,9 +8,10 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
+    "@supabase/supabase-js": "^2.84.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
+    "express": "^4.19.2",
     "nodemailer": "^6.9.8",
     "xlsx": "^0.18.5"
   }

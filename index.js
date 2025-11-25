@@ -2,8 +2,8 @@ import express from "express";
 import cors from "cors";
 import nodemailer from "nodemailer";
 import * as XLSX from "xlsx";
-import fs from "fs";
 import dotenv from "dotenv";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
@@ -21,6 +21,12 @@ function validar(req, res, next) {
   next();
 }
 
+// Conexión a Supabase
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE
+);
+
 // Transportador de Gmail
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -30,22 +36,8 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Leer correos
-function cargarCorreos() {
-  try {
-    return JSON.parse(fs.readFileSync("correos.json"));
-  } catch {
-    return [];
-  }
-}
-
-// Guardar correos
-function guardarCorreos(data) {
-  fs.writeFileSync("correos.json", JSON.stringify(data, null, 2));
-}
-
 // ---------- ENDPOINT 1: Cargar Excel ----------
-app.post("/cargar-excel", validar, (req, res) => {
+app.post("/cargar-excel", validar, async (req, res) => {
   try {
     const { excelBase64 } = req.body;
 
@@ -56,37 +48,50 @@ app.post("/cargar-excel", validar, (req, res) => {
 
     const correos = data.map((row) => ({
       email: row.email,
-      enviado: false
+      enviado: false,
+      fecha_envio: null
     }));
 
-    guardarCorreos(correos);
+    const { error } = await supabase.from("correos").insert(correos);
+
+    if (error) throw error;
 
     res.json({ ok: true, registros: correos.length });
   } catch (err) {
-    res.status(500).json({ ok: false, error: "Error leyendo Excel" });
+    console.error(err);
+    res.status(500).json({ ok: false, error: "Error guardando en Supabase" });
   }
 });
 
 // ---------- ENDPOINT 2: Estado ----------
-app.get("/estado", validar, (req, res) => {
-  const lista = cargarCorreos();
-  const enviados = lista.filter(x => x.enviado).length;
-  const pendientes = lista.length - enviados;
+app.get("/estado", validar, async (req, res) => {
+  const { count: total } = await supabase
+    .from("correos")
+    .select("*", { count: "exact", head: true });
+
+  const { count: enviados } = await supabase
+    .from("correos")
+    .select("*", { count: "exact", head: true })
+    .eq("enviado", true);
+
+  const pendientes = total - enviados;
 
   res.json({
-    total: lista.length,
+    total,
     enviados,
     pendientes
   });
 });
 
-
 // ---------- ENDPOINT 3: Enviar correos por lote ----------
 app.post("/enviar-lote", validar, async (req, res) => {
   const { titulo, mensaje } = req.body;
 
-  let lista = cargarCorreos();
-  const pendientes = lista.filter((x) => !x.enviado).slice(0, 400);
+  const { data: pendientes } = await supabase
+    .from("correos")
+    .select("*")
+    .eq("enviado", false)
+    .limit(400);
 
   let enviados = 0;
 
@@ -99,12 +104,15 @@ app.post("/enviar-lote", validar, async (req, res) => {
         html: `<p>${mensaje}</p>`
       });
 
-      item.enviado = true;
+      await supabase
+        .from("correos")
+        .update({
+          enviado: true,
+          fecha_envio: new Date().toISOString()
+        })
+        .eq("id", item.id);
+
       enviados++;
-
-      console.log("Enviado a:", item.email);
-
-      // Espera para evitar bloqueo
       await new Promise((r) => setTimeout(r, 800));
 
     } catch (err) {
@@ -112,23 +120,26 @@ app.post("/enviar-lote", validar, async (req, res) => {
     }
   }
 
-  guardarCorreos(lista);
+  const { count: restantes } = await supabase
+    .from("correos")
+    .select("*", { count: "exact", head: true })
+    .eq("enviado", false);
 
   res.json({
     ok: true,
     enviadosHoy: enviados,
-    restantes: lista.filter((x) => !x.enviado).length
+    restantes
   });
 });
-app.get("/correos", (req, res) => {
-  try {
-    const lista = JSON.parse(fs.readFileSync("correos.json"));
-    res.json({ ok: true, correos: lista });
-  } catch {
-    res.json({ ok: false, correos: [] });
-  }
-});
 
+// ---------- Listado de correos ----------
+app.get("/correos", async (req, res) => {
+  const { data, error } = await supabase.from("correos").select("*");
+
+  if (error) return res.json({ ok: false, correos: [] });
+
+  res.json({ ok: true, correos: data });
+});
 
 // ---------- Servidor ----------
 app.listen(process.env.PORT, () =>
