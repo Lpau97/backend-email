@@ -140,6 +140,14 @@ app.get("/correos", async (req, res) => {
 
   res.json({ ok: true, correos: data });
 });
+// GET - Listar correos
+app.get("/listar-correos", async (req, res) => {
+  const { data, error } = await supabase.from("correos").select("*");
+
+  if (error) return res.json({ ok: false, error });
+
+  res.json({ ok: true, correos: data });
+});
 
 // ---------- Servidor ----------
 app.listen(process.env.PORT, () =>
