@@ -46,11 +46,25 @@ app.post("/cargar-excel", validar, async (req, res) => {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
 
-    const correos = data.map((row) => ({
-      email: row.email,
-      enviado: false,
-      fecha_envio: null
-    }));
+    if (data.length === 0) {
+      return res.json({ ok: false, error: "El Excel está vacío." });
+    }
+
+    // Filtrar correos válidos
+    const correos = data
+      .map((row) => ({
+        email: row.email?.toString().trim(),
+        enviado: false,
+        fecha_envio: null
+      }))
+      .filter((c) => c.email && c.email.includes("@"));
+
+    if (correos.length === 0) {
+      return res.json({
+        ok: false,
+        error: "No se encontraron correos válidos en la columna 'email'."
+      });
+    }
 
     const { error } = await supabase.from("correos").insert(correos);
 
@@ -62,6 +76,7 @@ app.post("/cargar-excel", validar, async (req, res) => {
     res.status(500).json({ ok: false, error: "Error guardando en Supabase" });
   }
 });
+
 
 // ---------- ENDPOINT 2: Estado ----------
 app.get("/estado", validar, async (req, res) => {
