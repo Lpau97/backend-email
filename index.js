@@ -1,9 +1,9 @@
 import express from "express";
 import cors from "cors";
-import nodemailer from "nodemailer";
 import * as XLSX from "xlsx";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
 
 dotenv.config();
 
@@ -11,7 +11,9 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-// Seguridad
+// ------------------------------
+// 🔐 Seguridad por encabezado
+// ------------------------------
 const SECRET = process.env.BACKEND_SECRET;
 
 function validar(req, res, next) {
@@ -21,22 +23,22 @@ function validar(req, res, next) {
   next();
 }
 
-// Conexión a Supabase
+// ------------------------------
+// 🟦 Conexión a Supabase
+// ------------------------------
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE
 );
 
-// Transportador de Gmail
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS
-  }
-});
+// ------------------------------
+// 📩 Cliente Resend
+// ------------------------------
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ---------- ENDPOINT 1: Cargar Excel ----------
+// ------------------------------
+// 📌 ENDPOINT 1: CARGAR EXCEL
+// ------------------------------
 app.post("/cargar-excel", validar, async (req, res) => {
   try {
     const { excelBase64 } = req.body;
@@ -46,11 +48,6 @@ app.post("/cargar-excel", validar, async (req, res) => {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
 
-    if (data.length === 0) {
-      return res.json({ ok: false, error: "El Excel está vacío." });
-    }
-
-    // Filtrar correos válidos
     const correos = data
       .map((row) => ({
         email: row.email?.toString().trim(),
@@ -59,27 +56,33 @@ app.post("/cargar-excel", validar, async (req, res) => {
       }))
       .filter((c) => c.email && c.email.includes("@"));
 
-    if (correos.length === 0) {
-      return res.json({
-        ok: false,
-        error: "No se encontraron correos válidos en la columna 'email'."
-      });
-    }
+    if (correos.length === 0)
+      return res.json({ ok: false, error: "No se encontraron correos válidos." });
 
     const { error } = await supabase.from("correos").insert(correos);
-
     if (error) throw error;
 
     res.json({ ok: true, registros: correos.length });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ ok: false, error: "Error guardando en Supabase" });
+    res.status(500).json({ ok: false, error: "Error guardando correos" });
   }
 });
 
-
-// ---------- ENDPOINT 2: Estado ----------
+// ------------------------------
+// 📌 ENDPOINT 2: ESTADO
+// ------------------------------
 app.get("/estado", validar, async (req, res) => {
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const { data: registroHoy } = await supabase
+    .from("envios_diarios")
+    .select("cantidad")
+    .eq("fecha", hoy)
+    .single();
+
+  const enviadosHoy = registroHoy?.cantidad || 0;
+
   const { count: total } = await supabase
     .from("correos")
     .select("*", { count: "exact", head: true });
@@ -89,82 +92,124 @@ app.get("/estado", validar, async (req, res) => {
     .select("*", { count: "exact", head: true })
     .eq("enviado", true);
 
-  const pendientes = total - enviados;
-
   res.json({
     total,
     enviados,
-    pendientes
+    enviadosHoy,
+    pendientes: total - enviados,
+    limite_diario: 80
   });
 });
 
-// ---------- ENDPOINT 3: Enviar correos por lote ----------
+// ------------------------------
+// 📌 ENDPOINT 3: ENVIAR LOTE (con límite diario)
+// ------------------------------
 app.post("/enviar-lote", validar, async (req, res) => {
   const { titulo, mensaje } = req.body;
+  const hoy = new Date().toISOString().slice(0, 10);
+  const LIMITE = 80;
 
-  const { data: pendientes } = await supabase
-    .from("correos")
-    .select("*")
-    .eq("enviado", false)
-    .limit(400);
+  try {
+    // 1️⃣ Consultar cuántos se han enviado hoy
+    const { data: registroHoy } = await supabase
+      .from("envios_diarios")
+      .select("cantidad")
+      .eq("fecha", hoy)
+      .single();
 
-  let enviados = 0;
+    const enviadosHoy = registroHoy?.cantidad || 0;
 
-  for (let item of pendientes) {
-    try {
-      await transporter.sendMail({
-        from: process.env.GMAIL_USER,
-        to: item.email,
-        subject: titulo,
-        html: `<p>${mensaje}</p>`
+    if (enviadosHoy >= LIMITE) {
+      return res.json({
+        ok: false,
+        error: `Límite diario alcanzado (${LIMITE})`
       });
-
-      await supabase
-        .from("correos")
-        .update({
-          enviado: true,
-          fecha_envio: new Date().toISOString()
-        })
-        .eq("id", item.id);
-
-      enviados++;
-      await new Promise((r) => setTimeout(r, 800));
-
-    } catch (err) {
-      console.log("Error enviando a:", item.email, err.message);
     }
+
+    const disponibles = LIMITE - enviadosHoy;
+
+    // 2️⃣ Obtener correos pendientes (solo lo permitido por el límite)
+    const { data: pendientes } = await supabase
+      .from("correos")
+      .select("*")
+      .eq("enviado", false)
+      .limit(disponibles);
+
+    if (!pendientes || pendientes.length === 0) {
+      return res.json({ ok: false, error: "No hay correos pendientes" });
+    }
+
+    let enviados = 0;
+
+    // 3️⃣ Envío secuencial
+    for (let item of pendientes) {
+      try {
+        await resend.emails.send({
+          from: "Noticias <no-reply@tu-dominio.com>", 
+          to: item.email,
+          subject: titulo,
+          html: mensaje
+        });
+
+        await supabase
+          .from("correos")
+          .update({
+            enviado: true,
+            fecha_envio: new Date().toISOString()
+          })
+          .eq("id", item.id);
+
+        enviados++;
+
+        await new Promise((r) => setTimeout(r, 200));
+      } catch (err) {
+        console.log("Error enviando a:", item.email, err);
+      }
+    }
+
+    // 4️⃣ Actualizar contador diario
+    if (registroHoy) {
+      await supabase
+        .from("envios_diarios")
+        .update({ cantidad: enviadosHoy + enviados })
+        .eq("fecha", hoy);
+    } else {
+      await supabase
+        .from("envios_diarios")
+        .insert({ fecha: hoy, cantidad: enviados });
+    }
+
+    const { count: restantes } = await supabase
+      .from("correos")
+      .select("*", { count: "exact", head: true })
+      .eq("enviado", false);
+
+    res.json({
+      ok: true,
+      enviadosHoy: enviadosHoy + enviados,
+      enviadosEnEstaCampaña: enviados,
+      restantes
+    });
+  } catch (err) {
+    console.error("Error en enviar-lote:", err);
+    res.status(500).json({ ok: false, error: "Error en envío masivo" });
   }
-
-  const { count: restantes } = await supabase
-    .from("correos")
-    .select("*", { count: "exact", head: true })
-    .eq("enviado", false);
-
-  res.json({
-    ok: true,
-    enviadosHoy: enviados,
-    restantes
-  });
 });
 
-// ---------- Listado de correos ----------
-app.get("/correos", async (req, res) => {
+// ------------------------------
+// 📌 ENDPOINT: LISTAR CORREOS
+// ------------------------------
+app.get("/correos", validar, async (req, res) => {
   const { data, error } = await supabase.from("correos").select("*");
 
   if (error) return res.json({ ok: false, correos: [] });
 
   res.json({ ok: true, correos: data });
 });
-// GET - Listar correos
-app.get("/listar-correos", async (req, res) => {
-  const { data, error } = await supabase.from("correos").select("*");
 
-  if (error) return res.json({ ok: false, error });
-
-  res.json({ ok: true, correos: data });
-});
-
-// ---------- Servidor ----------
+// ------------------------------
+// 🚀 Servidor
+// ------------------------------
 app.listen(process.env.PORT, () =>
   console.log("Backend corriendo en puerto", process.env.PORT)
 );
