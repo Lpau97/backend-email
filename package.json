@@ -12,6 +12,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
     "express": "^4.19.2",
+    "node-cron": "^4.2.1",
     "nodemailer": "^6.9.8",
     "resend": "^6.5.2",
     "xlsx": "^0.18.5"

@@ -97,7 +97,7 @@ app.get("/estado", validar, async (req, res) => {
     enviados,
     enviadosHoy,
     pendientes: total - enviados,
-    limite_diario: 80
+    limite_diario: 100
   });
 });
 
@@ -145,7 +145,7 @@ app.post("/enviar-lote", validar, async (req, res) => {
     for (let item of pendientes) {
       try {
         await resend.emails.send({
-          from: `Noticias <no-reply@${process.env.RESEND_DOMAIN}>`,
+          from: `Insurance Traning Center <no-reply@${process.env.RESEND_DOMAIN}>`,
           to: item.email,
           subject: titulo,
           html: mensaje,
