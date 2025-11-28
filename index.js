@@ -148,7 +148,18 @@ app.post("/enviar-lote", validar, async (req, res) => {
           from: `Noticias <no-reply@${process.env.RESEND_DOMAIN}>`,
           to: item.email,
           subject: titulo,
-          html: mensaje
+          html: mensaje,
+          attachments: req.body.imagenBase64
+            ? [
+                {
+                  filename: "imagen.jpg",
+                  content: req.body.imagenBase64.split(",")[1], // Remover "data:image/jpeg;base64,"
+                  type: "image/jpeg",
+                  disposition: "inline",
+                  content_id: "imagen1" // Debe coincidir con cid:imagen1
+                }
+              ]
+            : []
         });
 
         await supabase
