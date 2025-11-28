@@ -145,7 +145,7 @@ app.post("/enviar-lote", validar, async (req, res) => {
     for (let item of pendientes) {
       try {
         await resend.emails.send({
-          from: "Noticias <no-reply@send.insurance-ecuador.com>", 
+          from: "Noticias <no-reply@${process.env.RESEND_DOMAIN}>", 
           to: item.email,
           subject: titulo,
           html: mensaje
