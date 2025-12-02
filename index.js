@@ -107,7 +107,7 @@ app.get("/estado", validar, async (req, res) => {
 app.post("/enviar-lote", validar, async (req, res) => {
   const { titulo, mensaje } = req.body;
   const hoy = new Date().toISOString().slice(0, 10);
-  const LIMITE = 80;
+  const LIMITE = 500;
 
   try {
     // 1️⃣ Consultar cuántos se han enviado hoy
