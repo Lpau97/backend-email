@@ -97,7 +97,7 @@ app.get("/estado", validar, async (req, res) => {
     enviados,
     enviadosHoy,
     pendientes: total - enviados,
-    limite_diario: 1500
+    limite_diario: 200
   });
 });
 
@@ -107,7 +107,7 @@ app.get("/estado", validar, async (req, res) => {
 app.post("/enviar-lote", validar, async (req, res) => {
   const { titulo, mensaje } = req.body;
   const hoy = new Date().toISOString().slice(0, 10);
-  const LIMITE = 1500;
+  const LIMITE = 200;
 
   try {
     // 1️⃣ Consultar cuántos se han enviado hoy
@@ -145,23 +145,29 @@ app.post("/enviar-lote", validar, async (req, res) => {
     for (let item of pendientes) {
       try {
         await resend.emails.send({
-          from: `Curso de Seguros <no-reply@${process.env.RESEND_DOMAIN}>`,
+          from: `Curso de Seguros <ventas@${process.env.RESEND_DOMAIN}>`,
+          reply_to: `scardoso@${process.env.RESEND_DOMAIN}`,
           to: item.email,
           subject: titulo,
           html: mensaje,
-          attachments: req.body.imagenBase64
-            ? [
-                {
-                  filename: "imagen.jpg",
-                  content: req.body.imagenBase64.split(",")[1], // Remover "data:image/jpeg;base64,"
-                  type: "image/jpeg",
-                  disposition: "inline",
-                  content_id: "imagen1" // Debe coincidir con cid:imagen1
-                }
-              ]
-            : []
+          text: "Información sobre el Curso de Seguros",
+        
+          attachments:
+            req.body.imagenBase64 &&
+            req.body.imagenBase64.includes(",")
+        
+              ? [
+                  {
+                    filename: "imagen.jpg",
+                    content: req.body.imagenBase64.split(",")[1],
+                    type: "image/jpeg",
+                    disposition: "inline",
+                    content_id: "imagen1"
+                  }
+                ]
+        
+              : []
         });
-
         await supabase
           .from("correos")
           .update({
