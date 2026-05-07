@@ -142,20 +142,21 @@ app.post("/enviar-lote", validar, async (req, res) => {
     let enviados = 0;
 
     // 3️⃣ Envío secuencial
-    for (let item of pendientes) {
+   for (let item of pendientes) {
       try {
-        await resend.emails.send({
+    
+        const response = await resend.emails.send({
           from: `Curso de Seguros <ventas@${process.env.RESEND_DOMAIN}>`,
           reply_to: `scardoso@${process.env.RESEND_DOMAIN}`,
           to: item.email,
           subject: titulo,
           html: mensaje,
           text: "Información sobre el Curso de Seguros",
-        
+    
           attachments:
             req.body.imagenBase64 &&
             req.body.imagenBase64.includes(",")
-        
+    
               ? [
                   {
                     filename: "imagen.jpg",
@@ -165,22 +166,41 @@ app.post("/enviar-lote", validar, async (req, res) => {
                     content_id: "imagen1"
                   }
                 ]
-        
+    
               : []
         });
-        await supabase
-          .from("correos")
-          .update({
-            enviado: true,
-            fecha_envio: new Date().toISOString()
-          })
-          .eq("id", item.id);
-
-        enviados++;
-
+    
+        // ✅ SOLO marcar como enviado si Resend respondió correctamente
+        if (response?.data?.id) {
+    
+          await supabase
+            .from("correos")
+            .update({
+              enviado: true,
+              fecha_envio: new Date().toISOString()
+            })
+            .eq("id", item.id);
+    
+          enviados++;
+    
+          console.log("Enviado correctamente a:", item.email);
+    
+        } else {
+    
+          console.log(
+            "No se pudo enviar a:",
+            item.email,
+            response?.error
+          );
+    
+        }
+    
         await new Promise((r) => setTimeout(r, 200));
+    
       } catch (err) {
+    
         console.log("Error enviando a:", item.email, err);
+    
       }
     }
 
