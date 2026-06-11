@@ -97,7 +97,7 @@ app.get("/estado", validar, async (req, res) => {
     enviados,
     enviadosHoy,
     pendientes: total - enviados,
-    limite_diario: 200
+    limite_diario: 220
   });
 });
 
@@ -107,7 +107,7 @@ app.get("/estado", validar, async (req, res) => {
 app.post("/enviar-lote", validar, async (req, res) => {
   const { titulo, mensaje } = req.body;
   const hoy = new Date().toISOString().slice(0, 10);
-  const LIMITE = 200;
+  const LIMITE = 220;
 
   try {
     // 1️⃣ Consultar cuántos se han enviado hoy
