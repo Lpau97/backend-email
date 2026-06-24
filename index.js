@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { BrevoClient } from "@getbrevo/brevo";
 
 dotenv.config();
 
@@ -32,9 +33,94 @@ const supabase = createClient(
 );
 
 // ------------------------------
-// 📩 Cliente Resend
+// 📩 Cliente Resend y Brevo
 // ------------------------------
 const resend = new Resend(process.env.RESEND_API_KEY);
+const brevo = new BrevoClient({
+  apiKey: process.env.BREVO_API_KEY
+});
+
+async function enviarEmail({
+  to,
+  subject,
+  html,
+  imagenBase64
+}) {
+  // ---------- RESEND ----------
+  try {
+    const response = await resend.emails.send({
+      from: `Curso de Seguros <ventas@${process.env.RESEND_DOMAIN}>`,
+      reply_to: `scardoso@${process.env.RESEND_DOMAIN}`,
+      to,
+      subject,
+      html,
+      text: "Información sobre el Curso de Seguros",
+
+      attachments:
+        imagenBase64 &&
+        imagenBase64.includes(",")
+          ? [
+              {
+                filename: "imagen.jpg",
+                content: imagenBase64.split(",")[1],
+                type: "image/jpeg",
+                disposition: "inline",
+                content_id: "imagen1"
+              }
+            ]
+          : []
+    });
+
+    if (response?.data?.id) {
+      console.log(`✅ Resend -> ${to}`);
+      return {
+        ok: true,
+        proveedor: "resend"
+      };
+    }
+
+    throw new Error("Resend no devolvió ID");
+  } catch (err) {
+    console.log(
+      `⚠️ Resend falló para ${to}. Intentando Brevo...`
+    );
+  }
+
+  // ---------- BREVO ----------
+  try {
+    await brevo.transactionalEmails.sendTransacEmail({
+      sender: {
+        name: "Curso de Seguros",
+        email: process.env.BREVO_FROM_EMAIL
+      },
+
+      to: [
+        {
+          email: to
+        }
+      ],
+
+      subject,
+      htmlContent: html,
+      textContent: "Información sobre el Curso de Seguros"
+    });
+
+    console.log(`✅ Brevo -> ${to}`);
+
+    return {
+      ok: true,
+      proveedor: "brevo"
+    };
+  } catch (err) {
+    console.log(`❌ Brevo también falló para ${to}`);
+
+    return {
+      ok: false,
+      proveedor: null,
+      error: err.message
+    };
+  }
+}
 
 // ------------------------------
 // 📌 ENDPOINT 1: CARGAR EXCEL
@@ -97,7 +183,7 @@ app.get("/estado", validar, async (req, res) => {
     enviados,
     enviadosHoy,
     pendientes: total - enviados,
-    limite_diario: 500
+    limite_diario: 220
   });
 });
 
@@ -107,7 +193,7 @@ app.get("/estado", validar, async (req, res) => {
 app.post("/enviar-lote", validar, async (req, res) => {
   const { titulo, mensaje } = req.body;
   const hoy = new Date().toISOString().slice(0, 10);
-  const LIMITE = 80;
+  const LIMITE = 220;
 
   try {
     // 1️⃣ Consultar cuántos se han enviado hoy
@@ -142,26 +228,17 @@ app.post("/enviar-lote", validar, async (req, res) => {
     let enviados = 0;
 
     // 3️⃣ Envío secuencial
-    for (let item of pendientes) {
+   for (let item of pendientes) {
       try {
-        await resend.emails.send({
-          from: `Curso de Seguros <no-reply@${process.env.RESEND_DOMAIN}>`,
-          to: item.email,
-          subject: titulo,
-          html: mensaje,
-          attachments: req.body.imagenBase64
-            ? [
-                {
-                  filename: "imagen.jpg",
-                  content: req.body.imagenBase64.split(",")[1], // Remover "data:image/jpeg;base64,"
-                  type: "image/jpeg",
-                  disposition: "inline",
-                  content_id: "imagen1" // Debe coincidir con cid:imagen1
-                }
-              ]
-            : []
-        });
+    
+        const resultado = await enviarEmail({
+        to: item.email,
+        subject: titulo,
+        html: mensaje,
+        imagenBase64: req.body.imagenBase64
+      });
 
+      if (resultado.ok) {
         await supabase
           .from("correos")
           .update({
@@ -172,9 +249,25 @@ app.post("/enviar-lote", validar, async (req, res) => {
 
         enviados++;
 
+        console.log(
+          `Enviado correctamente a ${item.email} usando ${resultado.proveedor}`
+        );
+      } else {
+        console.log(
+          `Error enviando a ${item.email}:`,
+          resultado.error
+        );
+        }
+    
+        // ✅ SOLO marcar como enviado si Resend respondió correctamente
+       
+    
         await new Promise((r) => setTimeout(r, 200));
+    
       } catch (err) {
+    
         console.log("Error enviando a:", item.email, err);
+    
       }
     }
 
