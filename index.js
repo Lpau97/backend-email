@@ -5,6 +5,9 @@ import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { BrevoClient } from "@getbrevo/brevo";
+import formData from "form-data";
+import Mailgun from "mailgun.js";
+
 
 dotenv.config();
 
@@ -33,13 +36,18 @@ const supabase = createClient(
 );
 
 // ------------------------------
-// 📩 Cliente Resend y Brevo
+// 📩 Cliente Resend , Brevo y Mailgun
 // ------------------------------
 const resend = new Resend(process.env.RESEND_API_KEY);
 const brevo = new BrevoClient({
   apiKey: process.env.BREVO_API_KEY
 });
 
+const mailgun = new Mailgun(formData);
+const mg = mailgun.client({
+  username: "api",
+  key: process.env.MAILGUN_API_KEY,
+});
 async function enviarEmail({
   to,
   subject,
@@ -120,6 +128,28 @@ async function enviarEmail({
       error: err.message
     };
   }
+  
+  // ---------- 3. MAILGUN ----------
+  try {
+    await mg.messages.create(process.env.MAILGUN_DOMAIN, {
+      from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
+      to,
+      subject,
+      html,
+    });
+
+    return { ok: true, proveedor: "mailgun" };
+
+  } catch (err) {
+    console.log("Mailgun falló también");
+
+    return {
+      ok: false,
+      proveedor: null,
+      error: err.message
+    };
+  }
+
 }
 
 // ------------------------------
