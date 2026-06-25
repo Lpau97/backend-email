@@ -112,16 +112,9 @@ async function enviarEmail({
       from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
       to,
       subject, 
-       html: `
-      ${html}
-      ${
-        imagenBase64
-          ? `<br><img src="cid:imagen1" style="max-width:100%;" />`
-          : ""
-      }
-    `,
-     text: "Información sobre el Curso de Seguros",
-     attachment: attachments
+       html,
+       text: "Información sobre el Curso de Seguros",
+       attachment: attachments
     
   });
 
