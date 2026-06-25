@@ -104,8 +104,7 @@ async function enviarEmail({
       ? [
           {
             filename: "imagen.jpg",
-            data: Buffer.from(imagenBase64.split(",")[1], "base64"),
-            cid: "imagen1"
+            data: Buffer.from(imagenBase64.split(",")[1], "base64")
           }
         ]
       : [];
