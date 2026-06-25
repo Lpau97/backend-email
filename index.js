@@ -143,7 +143,7 @@ async function enviarEmail({
   } catch (err) {
     console.log(`❌ Brevo también falló para ${to} Intentando con Mailgun..`);
 
-  }}
+  }
 
   // ---------- 3. MAILGUN ----------
  try {
