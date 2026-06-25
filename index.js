@@ -112,6 +112,7 @@ async function enviarEmail({
       from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
       to,
       subject, 
+      html,
       attachment: attachments
     
   });
