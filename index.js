@@ -56,19 +56,6 @@ async function enviarEmail({
   html,
   imagenBase64
 }){
-
-const htmlFinal =
-  imagenBase64 && imagenBase64.includes(",")
-    ? `
-      ${html}
-      <br><br>
-      <img
-        src="${imagenBase64}"
-        alt="Imagen"
-        style="max-width:100%;height:auto;"
-      />
-    `
-    : html;
   
   // ---------- RESEND ----------
   try {
@@ -116,19 +103,26 @@ const htmlFinal =
       from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
       to,
       subject,
-      html: htmlFinal,
+      html,
+       attachments:
+        imagenBase64 &&
+        imagenBase64.includes(",")
+          ? [
+              {
+                filename: "imagen.jpg",
+                content: imagenBase64.split(",")[1],
+                type: "image/jpeg",
+                disposition: "inline",
+                content_id: "imagen1"
+              }
+            ]
+          : []
     });
 
     return { ok: true, proveedor: "mailgun" };
 
   } catch (err) {
     console.log("Mailgun falló también");
-    console.error("Mailgun error:", err);
-    console.error(
-    "Mailgun error:",
-    err?.status,
-    err?.details,
-    err?.message
   );
 
     return {
@@ -153,8 +147,21 @@ const htmlFinal =
       ],
 
       subject,
-      htmlContent: htmlFinal,
-      textContent: "Información sobre el Curso de Seguros"
+      htmlContent,
+      textContent: "Información sobre el Curso de Seguros",
+       attachments:
+        imagenBase64 &&
+        imagenBase64.includes(",")
+          ? [
+              {
+                filename: "imagen.jpg",
+                content: imagenBase64.split(",")[1],
+                type: "image/jpeg",
+                disposition: "inline",
+                content_id: "imagen1"
+              }
+            ]
+          : []
     });
 
     console.log(`✅ Brevo -> ${to}`);
