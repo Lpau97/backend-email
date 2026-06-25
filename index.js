@@ -108,20 +108,12 @@ async function enviarEmail({
           }
         ]
       : [];
-   const htmlFinal = `
-        <h2 style="font-weight:bold;">
-          Información sobre el Curso de Seguros
-        </h2>
-      
-        <div>
-          ${mensaje || ""}
-        </div>
-      `;
+   
     await mg.messages.create(process.env.MAILGUN_DOMAIN, {
       from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
       to,
       subject, 
-      html: htmlFinal,
+      html,
       attachment: attachments
     
   });
