@@ -107,6 +107,13 @@ async function enviarEmail({
 
   } catch (err) {
     console.log("Mailgun falló también");
+    console.error("Mailgun error:", err);
+    console.error(
+    "Mailgun error:",
+    err?.status,
+    err?.details,
+    err?.message
+  );
 
     return {
       ok: false,
