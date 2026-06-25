@@ -64,7 +64,7 @@ async function enviarEmail({
       reply_to: `scardoso@${process.env.RESEND_DOMAIN}`,
       to,
       subject,
-      html:htmlFinal,
+      html,
       text: "Información sobre el Curso de Seguros",
 
       attachments:
