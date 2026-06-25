@@ -57,7 +57,7 @@ async function enviarEmail({
   imagenBase64
 }){
   
-  // ---------- RESEND ----------
+  // ----------1. RESEND ----------
   try {
     const response = await resend.emails.send({
       from: `Curso de Seguros <ventas@${process.env.RESEND_DOMAIN}>`,
@@ -97,41 +97,7 @@ async function enviarEmail({
     );
   }
 
-   // ---------- 3. MAILGUN ----------
- try {
-   const attachments =
-    imagenBase64 && imagenBase64.includes(",")
-      ? [
-          {
-            filename: "insurance-ecuador.jpg",
-            data: Buffer.from(imagenBase64.split(",")[1], "base64")
-          }
-        ]
-      : [];
-   
-    await mg.messages.create(process.env.MAILGUN_DOMAIN, {
-      from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
-      to,
-      subject, 
-      html,
-      attachment: attachments
-    
-  });
-
-    return { ok: true, proveedor: "mailgun" };
-
-  } catch (err) {
-    console.log("Mailgun falló también");
-
-    return {
-      ok: false,
-      proveedor: null,
-      error: err.message
-    };
-  }
-
-
-  // ---------- BREVO ----------
+  // ----------2. BREVO ----------
   try {
     const attachments =
     imagenBase64 && imagenBase64.includes(",")
@@ -175,7 +141,35 @@ async function enviarEmail({
       proveedor: "brevo"
     };
   } catch (err) {
-    console.log(`❌ Brevo también falló para ${to}`);
+    console.log(`❌ Brevo también falló para ${to} Intentando con Mailgun..`);
+
+  }}
+
+  // ---------- 3. MAILGUN ----------
+ try {
+   const attachments =
+    imagenBase64 && imagenBase64.includes(",")
+      ? [
+          {
+            filename: "insurance-ecuador.jpg",
+            data: Buffer.from(imagenBase64.split(",")[1], "base64")
+          }
+        ]
+      : [];
+   
+    await mg.messages.create(process.env.MAILGUN_DOMAIN, {
+      from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
+      to,
+      subject, 
+      html,
+      attachment: attachments
+    
+  });
+
+    return { ok: true, proveedor: "mailgun" };
+
+  } catch (err) {
+    console.log("Mailgun falló también");
 
     return {
       ok: false,
@@ -183,6 +177,7 @@ async function enviarEmail({
       error: err.message
     };
   }
+
   
  
 
