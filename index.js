@@ -99,19 +99,15 @@ async function enviarEmail({
 
    // ---------- 3. MAILGUN ----------
  try {
-  const base64 = imagenBase64?.split(",")[1];
-
   const attachments =
-    base64
+    imagenBase64 && imagenBase64.includes(",")
       ? [
           {
             filename: "insurance-ecuador.jpg",
-            content: Buffer.from(base64, "base64")
+            data: Buffer.from(imagenBase64.split(",")[1], "base64")
           }
         ]
       : [];
-
-
   await mg.messages.create(process.env.MAILGUN_DOMAIN, {
     from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
     to,
