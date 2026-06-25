@@ -104,7 +104,8 @@ async function enviarEmail({
       ? [
           {
             filename: "imagen.jpg",
-            data: Buffer.from(imagenBase64.split(",")[1], "base64")
+            data: Buffer.from(imagenBase64.split(",")[1], "base64"),
+            cid: "imagen1"
           }
         ]
       : [];
@@ -120,7 +121,8 @@ async function enviarEmail({
           : ""
       }
     `,
-    attachment: attachments
+     attachments,
+     text: "Información sobre el Curso de Seguros"
   });
 
     return { ok: true, proveedor: "mailgun" };
@@ -163,7 +165,7 @@ async function enviarEmail({
       ${html}
       ${
         imagenBase64
-          ? `<br><img src="cid:imagen1" style="max-width:100%;" />`
+          ? `<br><img src="https://via.placeholder.com/600x300" style="max-width:100%;" />`
           : ""
       }
     `,
