@@ -99,31 +99,34 @@ async function enviarEmail({
 
    // ---------- 3. MAILGUN ----------
   try {
+     const attachments =
+    imagenBase64 && imagenBase64.includes(",")
+      ? [
+          {
+            filename: "imagen.jpg",
+            data: Buffer.from(imagenBase64.split(",")[1], "base64")
+          }
+        ]
+      : [];
     await mg.messages.create(process.env.MAILGUN_DOMAIN, {
       from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
       to,
       subject,
-      html,
-       attachments:
-        imagenBase64 &&
-        imagenBase64.includes(",")
-          ? [
-              {
-                filename: "imagen.jpg",
-                content: imagenBase64.split(",")[1],
-                type: "image/jpeg",
-                disposition: "inline",
-                content_id: "imagen1"
-              }
-            ]
-          : []
-    });
+      html:`
+      ${html}
+      ${
+        imagenBase64
+          ? `<br><img src="cid:imagen1" style="max-width:100%;" />`
+          : ""
+      }
+    `,
+    attachment: attachments
+  });
 
     return { ok: true, proveedor: "mailgun" };
 
   } catch (err) {
     console.log("Mailgun falló también");
-  );
 
     return {
       ok: false,
@@ -134,6 +137,15 @@ async function enviarEmail({
 
   // ---------- BREVO ----------
   try {
+    const attachments =
+    imagenBase64 && imagenBase64.includes(",")
+      ? [
+          {
+            name: "imagen.jpg",
+            content: imagenBase64.split(",")[1]
+          }
+        ]
+      : [];
     await brevo.transactionalEmails.sendTransacEmail({
       sender: {
         name: "Curso de Seguros",
@@ -147,23 +159,19 @@ async function enviarEmail({
       ],
 
       subject,
-      htmlContent,
-      textContent: "Información sobre el Curso de Seguros",
-       attachments:
-        imagenBase64 &&
-        imagenBase64.includes(",")
-          ? [
-              {
-                filename: "imagen.jpg",
-                content: imagenBase64.split(",")[1],
-                type: "image/jpeg",
-                disposition: "inline",
-                content_id: "imagen1"
-              }
-            ]
-          : []
-    });
+      htmlContent: `
+      ${html}
+      ${
+        imagenBase64
+          ? `<br><img src="cid:imagen1" style="max-width:100%;" />`
+          : ""
+      }
+    `,
+    textContent: "Información sobre el Curso de Seguros",
 
+    attachment: attachments
+  });
+    
     console.log(`✅ Brevo -> ${to}`);
 
     return {
