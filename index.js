@@ -99,7 +99,7 @@ async function enviarEmail({
 
    // ---------- 3. MAILGUN ----------
   try {
-     const attachments =
+   const attachments =
     imagenBase64 && imagenBase64.includes(",")
       ? [
           {
@@ -111,17 +111,10 @@ async function enviarEmail({
     await mg.messages.create(process.env.MAILGUN_DOMAIN, {
       from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
       to,
-      subject,
-      html:`
-      ${html}
-      ${
-        imagenBase64
-          ? `<br><img src="cid:imagen1" style="max-width:100%;" />`
-          : ""
-      }
-    `,
-     attachment: attachments,
-     text: "Información sobre el Curso de Seguros"
+      subject, 
+     text: "Información sobre el Curso de Seguros",
+     attachment: attachments
+    
   });
 
     return { ok: true, proveedor: "mailgun" };
