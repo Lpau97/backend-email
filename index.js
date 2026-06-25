@@ -94,6 +94,27 @@ async function enviarEmail({
     );
   }
 
+   // ---------- 3. MAILGUN ----------
+  try {
+    await mg.messages.create(process.env.MAILGUN_DOMAIN, {
+      from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
+      to,
+      subject,
+      html,
+    });
+
+    return { ok: true, proveedor: "mailgun" };
+
+  } catch (err) {
+    console.log("Mailgun falló también");
+
+    return {
+      ok: false,
+      proveedor: null,
+      error: err.message
+    };
+  }
+
   // ---------- BREVO ----------
   try {
     await brevo.transactionalEmails.sendTransacEmail({
@@ -129,26 +150,7 @@ async function enviarEmail({
     };
   }
   
-  // ---------- 3. MAILGUN ----------
-  try {
-    await mg.messages.create(process.env.MAILGUN_DOMAIN, {
-      from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
-      to,
-      subject,
-      html,
-    });
-
-    return { ok: true, proveedor: "mailgun" };
-
-  } catch (err) {
-    console.log("Mailgun falló también");
-
-    return {
-      ok: false,
-      proveedor: null,
-      error: err.message
-    };
-  }
+ 
 
 }
 
