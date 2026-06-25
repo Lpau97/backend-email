@@ -49,6 +49,14 @@ const mg = mailgun.client({
   key: process.env.MAILGUN_API_KEY,
 });
 
+
+async function enviarEmail({
+  to,
+  subject,
+  html,
+  imagenBase64
+}){
+
 const htmlFinal =
   imagenBase64 && imagenBase64.includes(",")
     ? `
@@ -61,13 +69,7 @@ const htmlFinal =
       />
     `
     : html;
-
-async function enviarEmail({
-  to,
-  subject,
-  html,
-  imagenBase64
-}) {
+  
   // ---------- RESEND ----------
   try {
     const response = await resend.emails.send({
