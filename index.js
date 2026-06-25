@@ -121,7 +121,7 @@ async function enviarEmail({
           : ""
       }
     `,
-     attachemnt: attachments,
+     attachment: attachments,
      text: "Información sobre el Curso de Seguros"
   });
 
