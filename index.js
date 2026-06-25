@@ -48,6 +48,20 @@ const mg = mailgun.client({
   username: "api",
   key: process.env.MAILGUN_API_KEY,
 });
+
+const htmlFinal =
+  imagenBase64 && imagenBase64.includes(",")
+    ? `
+      ${html}
+      <br><br>
+      <img
+        src="${imagenBase64}"
+        alt="Imagen"
+        style="max-width:100%;height:auto;"
+      />
+    `
+    : html;
+
 async function enviarEmail({
   to,
   subject,
@@ -61,7 +75,7 @@ async function enviarEmail({
       reply_to: `scardoso@${process.env.RESEND_DOMAIN}`,
       to,
       subject,
-      html,
+      html:htmlFinal,
       text: "Información sobre el Curso de Seguros",
 
       attachments:
@@ -100,7 +114,7 @@ async function enviarEmail({
       from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
       to,
       subject,
-      html,
+      html: htmlFinal,
     });
 
     return { ok: true, proveedor: "mailgun" };
@@ -137,7 +151,7 @@ async function enviarEmail({
       ],
 
       subject,
-      htmlContent: html,
+      htmlContent: htmlFinal,
       textContent: "Información sobre el Curso de Seguros"
     });
 
