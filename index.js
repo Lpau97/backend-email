@@ -106,8 +106,7 @@ async function enviarEmail({
       ? [
           {
             filename: "insurance-ecuador.jpg",
-            content: Buffer.from(base64, "base64"),
-            cid: "imagen1" // 👈 CLAVE PARA INLINE IMAGE
+            content: Buffer.from(base64, "base64")
           }
         ]
       : [];
