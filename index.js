@@ -93,7 +93,7 @@ async function enviarEmail({
     throw new Error("Resend no devolvió ID");
   } catch (err) {
     console.log(
-      `⚠️ Resend falló para ${to}. Intentando Brevo...`
+      `⚠️ Resend falló para ${to}. Intentando Mailgun...`
     );
   }
 
