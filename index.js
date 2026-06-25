@@ -98,36 +98,53 @@ async function enviarEmail({
   }
 
    // ---------- 3. MAILGUN ----------
-  try {
-   const attachments =
-    imagenBase64 && imagenBase64.includes(",")
+ try {
+  const base64 = imagenBase64?.split(",")[1];
+
+  const attachments =
+    base64
       ? [
           {
-            filename: "imagen.jpg",
-            data: Buffer.from(imagenBase64.split(",")[1], "base64")
+            filename: "insurance-ecuador.jpg",
+            content: Buffer.from(base64, "base64"),
+            cid: "imagen1" // 👈 CLAVE PARA INLINE IMAGE
           }
         ]
       : [];
-    await mg.messages.create(process.env.MAILGUN_DOMAIN, {
-      from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
-      to,
-      subject, 
-     text: "Información sobre el Curso de Seguros",
-     attachment: attachments
-    
+
+  const htmlFinal = `
+    <h2>Información sobre el Curso de Seguros</h2>
+    <div>${html || ""}</div>
+    ${
+      base64
+        ? `<br><img src="cid:imagen1" style="max-width:100%;" />`
+        : ""
+    }
+  `;
+
+  await mg.messages.create(process.env.MAILGUN_DOMAIN, {
+    from: `Curso de Seguros <${process.env.MAILGUN_FROM_EMAIL}>`,
+    to,
+    subject,
+
+    html: htmlFinal,
+
+    text: "Información sobre el Curso de Seguros",
+
+    attachments // 👈 correcto
   });
 
-    return { ok: true, proveedor: "mailgun" };
+  return { ok: true, proveedor: "mailgun" };
 
-  } catch (err) {
-    console.log("Mailgun falló también");
+} catch (err) {
+  console.log("Mailgun error:", err);
 
-    return {
-      ok: false,
-      proveedor: null,
-      error: err.message
-    };
-  }
+  return {
+    ok: false,
+    proveedor: null,
+    error: err.message
+  };
+}
 
   // ---------- BREVO ----------
   try {
